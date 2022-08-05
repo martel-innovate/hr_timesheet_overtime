@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data>
+
+        <!--Done BY Addition IT Solutions: BEGIN -->
+        <!-- Override 'My Current Timesheet' form and menu here -->
+        <record id="view_hr_timesheet_current_open_inherit" model="ir.ui.view">
+            <field name="name">hr_timesheet_current_open.form.inherit</field>
+            <field name="model">hr.timesheet.current.open</field>
+            <field name="inherit_id" ref="hr_timesheet.view_hr_timesheet_current_open"/>
+            <field name="arch" type="xml">
+                <xpath expr="//form/group/separator" position="attributes">
+                    <attribute name="string">Generate timesheets for employees having the following tag:</attribute>
+                </xpath>
+                <xpath expr="//form/group" position="after">
+                    <group>
+                        <field name="category_id"/>
+                        <group colspan="2">
+                            <field name="date_start" on_change="change_date(date_start, date_end)"/>
+                            <field name="date_end"  on_change="change_date(date_start, date_end)"/>
+                        </group>
+                    </group>
+                </xpath>
+            </field>
+        </record>
+
+        <menuitem name="Generate Timesheets"
+                  id="menu_act_hr_timesheet_form_open_current"
+                  parent="hr_attendance.menu_hr_time_tracking"
+                  action="hr_timesheet.action_hr_timesheet_current_open"
+                  groups="base.group_hr_manager"
+                  sequence="10"/>
+
+    </data>
+</odoo>
+
+<!--Done BY Addition IT Solutions: END -->

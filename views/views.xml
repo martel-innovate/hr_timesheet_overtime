@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <!--     <record id="action_hr_timesheet_overtime" model="ir.actions.act_window">
+        <field name="name">hr_timesheet.overtime.action</field>
+        <field name="res_model">hr_timesheet.sheet</field>
+        <field name="view_mode">tree,form</field>
+    </record>  -->
+
+    <!-- <record model="ir.ui.view" id="view_id">
+        <field name="name">view.name</field>
+        <field name="model">hr_timesheet.sheet</field>
+        <field name="arch" type="xml">
+            <tree string="Idea list">
+                <field name="employee_id"/>
+                <field name="state"/>
+            </tree>
+        </field>
+    </record> -->
+
+    <record id="timesheet_overtime" model="ir.ui.view">
+        <field name="name">hr_timesheet.overtime</field>
+        <field name="model">hr_timesheet.sheet</field>
+        <field name="inherit_id" ref="hr_timesheet_sheet.hr_timesheet_sheet_form_my"/>
+        <field name="arch" type="xml">
+            <xpath expr="/form/sheet/group/group[@name='dates']" position="after">
+                <group>
+                    <field name="total_time" widget="float_time"/>
+                    <field name="total_duty_hours" widget="float_time" string="Expected this timesheet"/>
+                    <!-- <field name="prev_timesheet_diff" widget="float_time" string="Previous balance"/>
+                    <field name="calculate_diff_hours" widget="float_time" string="Total balance"/> -->
+                </group>
+            </xpath>
+            <notebook position="inside">
+                <page string="Overtime Analysis">
+                    <!--<field name="analysis" widget="html" nolabel="1"/>-->
+                </page>
+            </notebook>
+        </field>
+    </record>
+</odoo>
