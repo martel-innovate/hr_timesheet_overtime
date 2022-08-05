@@ -73,6 +73,42 @@ class ResourceCalendar(models.Model):
             intervals += self._leave_intervals(date_from, date_to)
             return intervals
 
+        #working_intervals = []
+        for calendar_working_day in self.get_attendances_for_weekdays(
+                [start_dt.weekday()], start_dt,
+                end_dt):
+
+            str_time_from_dict = str(calendar_working_day.hour_from).split('.')
+            hour_from = int(str_time_from_dict[0])
+            if int(str_time_from_dict[1]) < 10:
+                minutes_from = int(60 * int(str_time_from_dict[1]) / 10)
+            elif int(str_time_from_dict[1]) > 100:
+                m = str_time_from_dict[1][:2] + '.' + str_time_from_dict[1][2:]
+                m = float(m)
+                minutes_from = round(60 * m / 100)
+            else:
+                minutes_from = int(60 * int(str_time_from_dict[1]) / 100)
+            str_time_to_dict = str(calendar_working_day.hour_to).split('.')
+            hour_to = int(str_time_to_dict[0])
+            if int(str_time_to_dict[1]) < 10:
+                minutes_to = int(60 * int(str_time_to_dict[1]) / 10)
+            elif int(str_time_to_dict[1]) > 100:
+                m = str_time_to_dict[1][:2] + '.' + str_time_to_dict[1][2:]
+                m = float(m)
+                minutes_to = round(60 * m / 100)
+            else:
+                minutes_to = int(60 * int(str_time_to_dict[1]) / 100)
+
+            working_interval = (
+                work_dt.replace(hour=hour_from).replace(minute=minutes_from),
+                work_dt.replace(hour=hour_to).replace(minute=minutes_to)
+            )
+            # working_intervals += self._interval_remove_leaves(working_interval, work_limits)
+            intervals.append(working_interval)
+            date_from = work_dt.replace(hour=hour_from).replace(minute=minutes_from).replace(tzinfo=pytz.UTC)
+            date_to = work_dt.replace(hour=hour_to).replace(minute=minutes_to).replace(tzinfo=pytz.UTC)
+
+            # working_intervals += self._leave_intervals(date_from, date_to)
         # find leave intervals
         if leaves is None and compute_leaves:
             leaves = self._get_leave_intervals(resource_id=resource_id)
@@ -116,6 +152,23 @@ class ResourceCalendar(models.Model):
         for interval in intervals:
             res += interval[1] - interval[0]
         return seconds(res) / 3600.0
+
+    def get_attendances_for_weekdays(self, weekdays, start_dt, end_dt):
+        """ Given a list of weekdays, return matching
+        resource.calendar.attendance"""
+
+        res = []
+        for att in self.attendance_ids:
+            if int(att.dayofweek) in weekdays:
+                if not att.date_from or not att.date_to:
+                    res.append(att)
+                else:
+                    date_from =att.date_from
+                    date_to = att.date_to
+
+                    if date_from <= start_dt <= date_to:
+                        res.append(att)
+        return res
 
     use_overtime = fields.Boolean(string="Use Overtime Setting")
     min_overtime_count = fields.Integer(string="Minimum overtime days",
