@@ -20,19 +20,19 @@
     <record id="timesheet_overtime" model="ir.ui.view">
         <field name="name">hr_timesheet.overtime</field>
         <field name="model">hr_timesheet.sheet</field>
-        <field name="inherit_id" ref="hr_timesheet_sheet.hr_timesheet_sheet_form_my"/>
+        <field name="inherit_id" ref="hr_timesheet_sheet.hr_timesheet_sheet_form"/>
         <field name="arch" type="xml">
             <xpath expr="/form/sheet/group/group[@name='dates']" position="after">
                 <group>
-                    <field name="total_time" widget="float_time"/>
                     <field name="total_duty_hours" widget="float_time" string="Expected this timesheet"/>
-                    <!-- <field name="prev_timesheet_diff" widget="float_time" string="Previous balance"/>
-                    <field name="calculate_diff_hours" widget="float_time" string="Total balance"/> -->
+                    <field name="total_time" widget="float_time"/>
+                    <field name="prev_timesheet_diff" widget="float_time" string="Previous balance"/>
+                    <field name="calculate_diff_hours" widget="float_time" string="Total balance"/>
                 </group>
             </xpath>
             <notebook position="inside">
                 <page string="Overtime Analysis">
-                    <!--<field name="analysis" widget="html" nolabel="1"/>-->
+                    <field name="analysis" widget="html" nolabel="1"/>
                 </page>
             </notebook>
         </field>

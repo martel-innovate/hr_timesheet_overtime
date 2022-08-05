@@ -20,13 +20,38 @@
 #
 ##############################################################################
 
-import datetime as dtime
+import math
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time, date
 from odoo import api, fields, models, _
 from dateutil import rrule, parser
 from odoo.tools.translate import _
+import logging
 
+_logger = logging.getLogger(__name__)
+
+
+def float_time_convert(float_val):
+    _logger.info('float_time_convert')
+    _logger.info('float_val')
+    """
+    Converts float value of hours into time value
+    :param float_val: hours/minutes in float type
+    :return: string
+    """
+    hours = math.floor(abs(float_val))
+    mins = abs(float_val) - hours
+    mins = round(mins * 60)
+    if mins >= 60.0:
+        hours += 1
+        mins = 0.0
+    float_time = '%02d:%02d' % (hours, mins)
+    return float_time
+
+
+def sign_float_time_convert(float_time):
+    sign = '-' if float_time < 0 else ''
+    return sign + float_time_convert(float_time)
 
 class Sheet(models.Model):
     """
@@ -55,58 +80,60 @@ class Sheet(models.Model):
     
     
     def count_leaves(self, date_start, employee_id, period):
-        holiday_obj = self.env['hr.holidays']
+        holiday_obj = self.env['hr.leave']
         start_leave_period = end_leave_period = False
         if period.get('date_start') and period.get('date_end'):
             start_leave_period = period.get('date_start')
             end_leave_period = period.get('date_end')
         holiday_ids = holiday_obj.search(
             ['|', '&',
-             ('date_start', '>=', start_leave_period),
-             ('date_start', '<=', end_leave_period),
-             '&', ('date_end', '<=', end_leave_period),
-             ('date_end', '>=', start_leave_period),
+             ('date_from', '>=', start_leave_period),
+             ('date_from', '<=', end_leave_period),
+             '&', ('date_to', '<=', end_leave_period),
+             ('date_to', '>=', start_leave_period),
              ('employee_id', '=', employee_id),
-             ('state', '=', 'validate'),
-             ('type', '=', 'remove')])
+             ('state', '=', 'validate')])
         leaves = []
         for leave in holiday_ids:
-            leave_date_start = datetime.strptime(leave.date_start,
-                                                '%Y-%m-%d %H:%M:%S')
-            leave_date_end = datetime.strptime(leave.date_end,
-                                              '%Y-%m-%d %H:%M:%S')
+            leave_date_start = leave.date_from
+            leave_date_end = leave.date_to
             leave_dates = list(rrule.rrule(rrule.DAILY,
-                                           dtstart=parser.parse(
-                                               leave.date_start),
-                                           until=parser.parse(leave.date_end)))
+                                           dtstart=leave.date_from,
+                                           until=leave.date_to))
             for date in leave_dates:
                 if date.strftime('%Y-%m-%d') == date_start.strftime('%Y-%m-%d'):
                     leaves.append(
                         (leave_date_start, leave_date_end, leave.number_of_days))
                     break
+        #_logger.info(leaves)
         return leaves
     
     
     def get_overtime(self, start_date):
+        _logger.info('get_overtime')
         for sheet in self:
+            _logger.info(sheet.state)
             if sheet.state == 'done':
                 return sheet.total_time - sheet.total_duty_hours_done
             return self.calculate_diff(start_date)
     
     
     def _overtime_diff(self):
+        _logger.info('_overtime_diff')
         for sheet in self:
             # What is this? why day and not month?
-            old_timesheet_start_from = parser.parse(
-                sheet.date_start) - timedelta(days=1)
+            old_timesheet_start_from = sheet.date_start - timedelta(days=1)
+            _logger.info(old_timesheet_start_from)
             prev_timesheet_diff = \
                 self.get_previous_month_diff(
                     sheet.employee_id.id,
                     old_timesheet_start_from.strftime('%Y-%m-%d')
                 )
+            _logger.info(prev_timesheet_diff)
             sheet['calculate_diff_hours'] = (
                 self.get_overtime(datetime.today().strftime('%Y-%m-%d'), ) +
                 prev_timesheet_diff)
+            _logger.info(sheet['calculate_diff_hours'])
             sheet['prev_timesheet_diff'] = prev_timesheet_diff
     
     # Pupulate Overtime Analysis table data with results from attendance_analysis
@@ -118,35 +145,43 @@ class Sheet(models.Model):
             data = self.attendance_analysis(sheet.id, function_call)
             values = []
             output = [
-                '<style>.attendanceTable td,.attendanceTable th {padding: 3px; border: 1px solid #C0C0C0; border-collapse: collapse;     text-align: right;} </style><table class="attendanceTable" >']
-            for val in data.values():
-                if isinstance(val, (int, float)):
+                '<style>.attendanceTable td,.attendanceTable th '
+                '{padding: 3px; border: 1px solid #C0C0C0; '
+                'border-collapse: collapse;     '
+                'text-align: right;} '
+                '.attendanceTable {border: 1px solid #C0C0C0;}</style>'
+                '<table class="attendanceTable">']
+            if 'previous_month_diff' in data:
+                _logger.info(data['previous_month_diff'])
+                if isinstance(data['previous_month_diff'], (int, float)):
                     output.append('<tr>')
                     prev_ts = _('Previous Timesheet:')
                     output.append('<th colspan="2">' + prev_ts + ' </th>')
-                    output.append('<td colspan="3">' + str(val) + '</td>')
+                    output.append('<td colspan="3">' + str(round(data['previous_month_diff'],2)) + '</td>')
                     output.append('</tr>')
-            for k, v in data.items():
-                if isinstance(v, list):
-                    output.append('<tr>')
-                    for th in v[0].keys():
-                        output.append('<th>' + th + '</th>')
-                    output.append('</tr>')
-                    for res in v:
-                        values.append(res.values())
-                    for tr in values:
+            keys = (_('Date'), _('Running'), _('Duty Hours'), _('Worked Hours'),
+                    _('Difference'))
+            output.append('<tr>')
+            for th in keys:
+                output.append('<th>' + th + '</th>')
+            output.append('</tr>')
+            if 'hours' in data and data['hours']:
+                if isinstance(data['hours'], list):
+                    for res in data['hours']:
                         output.append('<tr>')
-                        for td in tr:
-                            output.append('<td>' + td + '</td>')
+                        for th in keys:
+                            output.append('<td>' + res.get(th) + '</td>')
                         output.append('</tr>')
-    
-                if isinstance(v, dict):
-                    output.append('<tr>')
-                    total_ts = _('Total:')
-                    output.append('<th>' + total_ts + ' </th>')
-                    for td in v.values():
-                        output.append('<td>' + '%s' % round(td, 4) + '</td>')
-                    output.append('</tr>')
+            output.append('<tr>')
+            total_ts = _('Total:')
+            output.append('<th>' + total_ts + ' </th>')
+            if 'total' in data and data['total']:
+                if isinstance(data['total'], dict):
+                    _logger.info(data['total'])
+                    for v in keys:
+                        if data['total'].get(v):
+                            output.append('<td>' + '%s' % round(data['total'].get(v), 2) + '</td>')
+            output.append('</tr>')
             output.append('</table>')
             sheet['analysis'] = '\n'.join(output)
     
@@ -182,11 +217,8 @@ class Sheet(models.Model):
             [('employee_id', '=', self.employee_id.id),
              ('date_start', '<=', date_start), '|',
              ('date_end', '>=', date_start),
-             ('date_end', '=', None),
-             ('state', 'not in', ('draft', 'cancel'))])
+             ('date_end', '=', None)])
         for contract in contract_ids:
-            if contract and contract.rate_per_hour:
-                return 0.00
             ctx = dict(self.env.context).copy()
             ctx.update(period)
             if contract:
@@ -204,19 +236,20 @@ class Sheet(models.Model):
                 if leaves[-1] and leaves[-1][-1]:
                     if float(leaves[-1][-1]) == (-0.5):
                         duty_hours += dh / 2
-    
+        _logger.info(duty_hours)
         return duty_hours
-    
-    
-    def get_previous_month_diff(self, employee_id, prev_timesheet_date_start):
+
+
+    def get_previous_month_diff(self, employee_id, prev_timesheet_date_from):
         total_diff = 0.0
-        timesheet_ids = self.search(
-            [('employee_id', '=', employee_id),
-             ('date_start', '<', prev_timesheet_date_start)
-             ])
-        for timesheet in timesheet_ids:
-            total_diff += timesheet.get_overtime(
-                start_date=prev_timesheet_date_start)
+        prev_timesheet_ids = self.search(
+            [('employee_id', '=', employee_id)
+             ]).filtered(lambda sheet: sheet.date_end < self.date_start).sorted(
+            key=lambda v: v.date_start)
+        _logger.info(prev_timesheet_ids)
+        if prev_timesheet_ids:
+            total_diff = prev_timesheet_ids[-1].calculate_diff_hours
+        _logger.info(total_diff)
         return total_diff
     
     
@@ -235,12 +268,9 @@ class Sheet(models.Model):
     
     
     def attendance_analysis(self, timesheet_id=None, function_call=False):
-        attendance_obj = self.env['hr.attendance']
         date_format, time_format = self._get_user_datetime_format()
-    
         for sheet in self:
             if sheet.id == timesheet_id:
-    
                 employee_id = sheet.employee_id.id
                 start_date = sheet.date_start
                 end_date = sheet.date_end
@@ -256,22 +286,26 @@ class Sheet(models.Model):
                           'date_end': end_date
                           }
                 dates = list(rrule.rrule(rrule.DAILY,
-                                         dtstart=parser.parse(start_date),
-                                         until=parser.parse(
-                                             end_date)))
+                                         dtstart=start_date,
+                                         until=end_date))
                 work_current_month_diff = 0.0
-                total = {'worked_hours': 0.0, 'duty_hours': 0.0,
+                if function_call:
+                    total = {_('Worked Hours'): 0.0, _('Duty Hours'): 0.0,
+                         _('Running'):
+                             current_month_diff, _('Difference'): 0.0}
+                else:
+                    total = {'worked_hours': 0.0, 'duty_hours': 0.0,
                          'diff':
-                             current_month_diff, 'work_current_month_diff': ''}
+                             current_month_diff, 'work_current_month_diff': 0.0}
                 for date_line in dates:
     
                     dh = sheet.calculate_duty_hours(date_start=date_line,
                                                     period=period,
                                                     )
                     worked_hours = 0.0
-                    for att in sheet.period_ids:
-                        if att.name == date_line.strftime('%Y-%m-%d'):
-                            worked_hours = att.total_time
+                    for att in sheet.timesheet_ids:
+                        if att.date == date_line.date():
+                            worked_hours += att.unit_amount
     
                     diff = worked_hours - dh
                     current_month_diff += diff
@@ -279,37 +313,34 @@ class Sheet(models.Model):
                     if function_call:
                         res['hours'].append({
                             _('Date'): date_line.strftime(date_format),
+                            _('Running'): sign_float_time_convert(
+                                current_month_diff),
                             _('Duty Hours'):
-                                attendance_obj.float_time_convert(dh),
+                                sign_float_time_convert(dh),
                             _('Worked Hours'):
-                                attendance_obj.float_time_convert(worked_hours),
-                            _('Difference'): self.sign_float_time_convert(diff),
-                            _('Running'): self.sign_float_time_convert(
-                                current_month_diff)})
+                                sign_float_time_convert(worked_hours),
+                            _('Difference'): sign_float_time_convert(diff)})
+                        total[_('Worked Hours')] += worked_hours
+                        total[_('Duty Hours')] += dh
+                        total[_('Running')] += diff
+                        total[_('Difference')] = work_current_month_diff
                     else:
                         res['hours'].append({
                             'name': date_line.strftime(date_format),
-                            'dh': attendance_obj.float_time_convert(dh),
-                            'worked_hours': attendance_obj.float_time_convert(
+                            'running': sign_float_time_convert(
+                                current_month_diff),
+                            'dh': sign_float_time_convert(dh),
+                            'worked_hours': sign_float_time_convert(
                                 worked_hours),
-                            'diff': self.sign_float_time_convert(diff),
-                            'running': self.sign_float_time_convert(
-                                current_month_diff)
-                        })
-                    total['duty_hours'] += dh
-                    total['worked_hours'] += worked_hours
-                    total['diff'] += diff
-                    total['work_current_month_diff'] = work_current_month_diff
+                            'diff': sign_float_time_convert(diff)})
+                        total['worked_hours'] += worked_hours
+                        total['duty_hours'] += dh
+                        total['work_current_month_diff'] = work_current_month_diff
+                        total['diff'] += diff
                     res['total'] = total
                 return res
-    
-    
-    def sign_float_time_convert(self, float_time):
-        sign = '-' if float_time < 0 else ''
-        attendance_obj = self.pool.get('hr.attendance')
-        return sign + attendance_obj.float_time_convert(float_time)
-    
-    
+
+
     def write(self, vals):
         if 'state' in vals and vals['state'] == 'done':
             for sheet in self:
