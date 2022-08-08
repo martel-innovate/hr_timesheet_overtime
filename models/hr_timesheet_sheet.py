@@ -32,8 +32,6 @@ _logger = logging.getLogger(__name__)
 
 
 def float_time_convert(float_val):
-    _logger.info('float_time_convert')
-    _logger.info('float_val')
     """
     Converts float value of hours into time value
     :param float_val: hours/minutes in float type
@@ -59,6 +57,8 @@ class Sheet(models.Model):
     """
     _name = "hr_timesheet.sheet"
     _inherit = 'hr_timesheet.sheet'
+
+    _logger.info("Timesheet with overtime at work...")
     
     def _duty_hours(self):
         for sheet in self:
@@ -105,35 +105,28 @@ class Sheet(models.Model):
                     leaves.append(
                         (leave_date_start, leave_date_end, leave.number_of_days))
                     break
-        #_logger.info(leaves)
         return leaves
     
     
     def get_overtime(self, start_date):
-        _logger.info('get_overtime')
         for sheet in self:
-            _logger.info(sheet.state)
             if sheet.state == 'done':
                 return sheet.total_time - sheet.total_duty_hours_done
             return self.calculate_diff(start_date)
     
     
     def _overtime_diff(self):
-        _logger.info('_overtime_diff')
         for sheet in self:
             # What is this? why day and not month?
             old_timesheet_start_from = sheet.date_start - timedelta(days=1)
-            _logger.info(old_timesheet_start_from)
             prev_timesheet_diff = \
                 self.get_previous_month_diff(
                     sheet.employee_id.id,
                     old_timesheet_start_from.strftime('%Y-%m-%d')
                 )
-            _logger.info(prev_timesheet_diff)
             sheet['calculate_diff_hours'] = (
                 self.get_overtime(datetime.today().strftime('%Y-%m-%d'), ) +
                 prev_timesheet_diff)
-            _logger.info(sheet['calculate_diff_hours'])
             sheet['prev_timesheet_diff'] = prev_timesheet_diff
     
     # Pupulate Overtime Analysis table data with results from attendance_analysis
@@ -152,7 +145,6 @@ class Sheet(models.Model):
                 '.attendanceTable {border: 1px solid #C0C0C0;}</style>'
                 '<table class="attendanceTable">']
             if 'previous_month_diff' in data:
-                _logger.info(data['previous_month_diff'])
                 if isinstance(data['previous_month_diff'], (int, float)):
                     output.append('<tr>')
                     prev_ts = _('Previous Timesheet:')
@@ -177,7 +169,6 @@ class Sheet(models.Model):
             output.append('<th>' + total_ts + ' </th>')
             if 'total' in data and data['total']:
                 if isinstance(data['total'], dict):
-                    _logger.info(data['total'])
                     for v in keys:
                         if data['total'].get(v):
                             output.append('<td>' + '%s' % round(data['total'].get(v), 2) + '</td>')
@@ -236,7 +227,6 @@ class Sheet(models.Model):
                 if leaves[-1] and leaves[-1][-1]:
                     if float(leaves[-1][-1]) == (-0.5):
                         duty_hours += dh / 2
-        _logger.info(duty_hours)
         return duty_hours
 
 
@@ -246,10 +236,8 @@ class Sheet(models.Model):
             [('employee_id', '=', employee_id)
              ]).filtered(lambda sheet: sheet.date_end < self.date_start).sorted(
             key=lambda v: v.date_start)
-        _logger.info(prev_timesheet_ids)
         if prev_timesheet_ids:
             total_diff = prev_timesheet_ids[-1].calculate_diff_hours
-        _logger.info(total_diff)
         return total_diff
     
     

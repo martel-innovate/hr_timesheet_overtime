@@ -32,13 +32,9 @@
     'installable': True,
     'application': False,
     'data': [
-#        'security/ir_rule.xml',
-#        'security/ir.model.access.csv',
+        'security/ir.model.access.csv',
         'views/views.xml',
-        # Report
-#        'report/report_attendance_analysis_view.xml',
         # View file for the wizard
-#        'wizard/create_timesheet_with_tag_view.xml', 
-#        'wizard/import_leave_requests_view.xml',
+        'wizard/timesheet_tag.xml', 
     ]
 }

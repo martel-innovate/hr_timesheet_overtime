@@ -166,7 +166,8 @@ class ResourceCalendar(models.Model):
                     date_from =att.date_from
                     date_to = att.date_to
 
-                    if date_from <= start_dt <= date_to:
+
+                    if date_from <= start_dt.date() <= date_to:
                         res.append(att)
         return res
 
@@ -355,8 +356,6 @@ class ResourceCalendarAttendance(models.Model):
 
     def change_working_time(self, date_start, date_end,
                             resource_calendar_id=False):
-        _logger.info(date_start)
-        _logger.info(date_end)
         analytic_pool = self.env['employee.attendance.analytic']
         if not resource_calendar_id:
             resource_calendar_id = self.calendar_id.id
@@ -367,6 +366,5 @@ class ResourceCalendarAttendance(models.Model):
             [('contract_id', 'in', contract_ids),
              ('attendance_date', '<=', date_end),
              ('attendance_date', '>=', date_start)])
-        _logger.info(len(lines))
         for line in lines:
             analytic_pool.recalculate_line(line.name)

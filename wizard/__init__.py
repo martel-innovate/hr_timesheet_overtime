@@ -20,7 +20,6 @@
 #
 ##############################################################################
 
-from . import create_timesheet_with_tag
-from . import import_leave_requests
+from . import timesheet_tag
 
 # END

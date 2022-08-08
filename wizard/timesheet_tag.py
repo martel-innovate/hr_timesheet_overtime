@@ -25,25 +25,25 @@ import time
 from odoo import fields, models, api, _
 from odoo.exceptions import ValidationError
 
-
 class CreateTimesheetWithTag(models.TransientModel):
-    _inherit = 'hr.timesheet.current.open'
+    _name = "hr_timesheet.generate_wizard"
     _description = 'Create Timesheet With Employee Tag'
 
-        # Added below fields on the wizard
-    category_id = fields.Many2one('hr.employee.category',
-                                  string="Employee Tag",
-                                  required=True,
-                                  help='Category of Employee')
+    # Added below fields on the wizard
+    category_id = fields.Many2one(
+        string="Employee Tag",
+        comodel_name="hr.employee.category",
+    )
     date_start = fields.Date(string='Start Date')
     date_end = fields.Date(string='End Date')
 
+
     @api.onchange('date_start', 'date_end')
-    
-    def change_date(self, date_start, date_end):
+    def change_date(self, date_start=None, date_end=None):
         if date_end and date_start and date_start > date_end:
             raise ValidationError(
                 _('You added wrong date period.'))
+
 
     @api.model
     def create(self, values):
@@ -53,22 +53,34 @@ class CreateTimesheetWithTag(models.TransientModel):
                 _('You added wrong date period.'))
         return super(CreateTimesheetWithTag, self).create(values)
 
-    
+
     def open_timesheet(self):
         employee_obj = self.env['hr.employee']
         ts = self.env['hr_timesheet.sheet']
-        value = super(CreateTimesheetWithTag, self).open_timesheet()
-        # First: Search all employees of selected Tag
+
+        #set up view to be generated
+        value = {
+            'type': 'ir.actions.act_window',
+            'name': 'Generated Timesheets',
+            'res_model': 'hr_timesheet.sheet',
+            'view_mode': 'tree,form',
+            'target': 'current',
+        }
+
         if not self.category_id:
-            return value
+            return {}
         category_id = self.category_id.id
+        company_id = self.env.company.id
+        # First: Search all employees of selected Tag
         employee_objects = employee_obj.search([
-            ('category_ids', 'in', [category_id])])
+            ('category_ids', 'in', [category_id]),
+            ('company_id', 'in', [company_id])])
+
         user_ids = []
         ts_ids = []
         date_start = self.date_start or time.strftime('%Y-%m-%d')
         date_end = self.date_end or time.strftime('%Y-%m-%d')
-        # Second: Create/Open Timesheets for all fetched employees.
+        # Second: Create for all fetched employees.
         for emp in employee_objects:
 
             if emp.user_id:
@@ -77,7 +89,8 @@ class CreateTimesheetWithTag(models.TransientModel):
                     ('user_id', '=', emp.user_id.id),
                     ('state', 'in', ('draft', 'new')),
                     ('date_start', '<=', date_start),
-                    ('date_end', '>=', date_end)
+                    ('date_end', '>=', date_end),
+                    ('company_id', 'in', [company_id])
                 ])
                 if ts_id:
                     raise ValidationError(
@@ -89,6 +102,15 @@ class CreateTimesheetWithTag(models.TransientModel):
                         values.update({
                             'date_start': date_start,
                             'date_end': date_end})
+                    if emp.department_id:
+                        values.update({
+                            'department_id': emp.department_id.id
+                        })
+
+                    if emp.company_id:
+                        values.update({
+                            'company_id': emp.company_id.id
+                        })
                     ts_id = ts.create(values)
 
                 ts_ids.append(ts_id.id)
