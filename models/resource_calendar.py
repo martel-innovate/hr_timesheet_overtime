@@ -356,15 +356,4 @@ class ResourceCalendarAttendance(models.Model):
 
     def change_working_time(self, date_start, date_end,
                             resource_calendar_id=False):
-        analytic_pool = self.env['employee.attendance.analytic']
-        if not resource_calendar_id:
-            resource_calendar_id = self.calendar_id.id
-        contract_ids = self.env['hr.contract'].search(
-            [('state', '=', 'open'),
-             ('resource_calendar_id', '=', resource_calendar_id)]).ids
-        lines = analytic_pool.search(
-            [('contract_id', 'in', contract_ids),
-             ('attendance_date', '<=', date_end),
-             ('attendance_date', '>=', date_start)])
-        for line in lines:
-            analytic_pool.recalculate_line(line.name)
+        return

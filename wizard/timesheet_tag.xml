@@ -33,7 +33,7 @@
         </record>
 
         <menuitem name="Generate Timesheets"
-                  id="generate timesheets"
+                  id="generate_timesheets"
                   parent="hr_timesheet.menu_timesheets_reports"
                   action="action_generate_wizard" />
     </data>
