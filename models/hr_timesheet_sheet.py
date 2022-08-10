@@ -59,26 +59,62 @@ class Sheet(models.Model):
     _inherit = 'hr_timesheet.sheet'
 
     _logger.info("Timesheet with overtime at work...")
-    
+
+    # This used to start as "expected to be done" and finish as "monthly diff"
+    # Now this will remain as the expected time always.
+    _logger.info("before total_duty")
+    #total_duty_hours = fields.Float(compute='_duty_hours',
+    #                                 string='Total Duty Hours', store=False, readonly=True)
+    # total_duty_hours = fields.Float(string='Total Duty Hours',
+    #                                  readonly=True,
+    #                                  default=0.0, store=False)
+    _logger.info("after total_duty")
+    # Remains as cache of the total_duty_hours.
+    total_duty_hours = fields.Float(string='Total Duty Hours (temp)',
+                                         compute='_duty_hours',
+                                         default=0.0)
+
+    total_duty_hours_done = fields.Float(string='Total Duty Hours (stored)',
+                                         readonly=True,
+                                         default=0.0)
+    # What is this for?
+    total_diff_hours = fields.Float(string='Total Diff Hours',
+                                    readonly=True,
+                                    default=0.0)
+    # This is the "Total balance", the final result considering all past deltas.
+    calculate_diff_hours = fields.Float(compute='_calculate_diff_hours',
+                                        string="Diff (worked-duty)")
+    # This is the delta of the previous month.
+    prev_timesheet_diff = fields.Float(compute='_prev_timesheet_diff',
+                                      string="Previous overtime")
+    # This constructs the "Overtime Analysys" tab content (table)
+    analysis = fields.Text(compute='_get_analysis',
+                           type="text",
+                           string="Attendance Analysis")
+
     def _duty_hours(self):
+        _logger.info("_duty_hours")
+        total_duty_hours = 0.0
         for sheet in self:
-            sheet['total_duty_hours'] = 0.0
-            if sheet.state == 'done' and 'total_duty_hours_done' in sheet and sheet['total_duty_hours_done']:
-                sheet['total_duty_hours'] = sheet['total_duty_hours_done']
+            _logger.info(sheet.total_duty_hours_done)
+            if sheet.state == 'done' and 'total_duty_hours_done' in sheet:
+                _logger.info(sheet.total_duty_hours_done)
+                total_duty_hours = sheet.total_duty_hours_done
+                _logger.info("done")
             else:
+                _logger.info("not done")
                 dates = list(rrule.rrule(rrule.DAILY,
                                          dtstart=sheet.date_start,
                                          until=sheet.date_end))
                 period = {'date_start': sheet.date_start,
                           'date_end': sheet.date_end}
                 for date_line in dates:
-                    duty_hours = sheet.calculate_duty_hours(date_start=date_line,
+                    total_duty_hours += sheet.calculate_duty_hours(date_start=date_line,
                                                             period=period,
                                                             )
-                    sheet['total_duty_hours'] += duty_hours
-                sheet['total_duty_hours_done'] = sheet['total_duty_hours']
-    
-    
+            _logger.info(total_duty_hours)
+            sheet.total_duty_hours = total_duty_hours
+
     def count_leaves(self, date_start, employee_id, period):
         holiday_obj = self.env['hr.leave']
         start_leave_period = end_leave_period = False
@@ -109,30 +145,32 @@ class Sheet(models.Model):
     
     
     def get_overtime(self, start_date):
+        _logger.info("get_overtime")
         for sheet in self:
-            if sheet.state == 'done':
-                return sheet.total_time - sheet.total_duty_hours_done
-            return self.calculate_diff(start_date)
+            return sheet.total_time - sheet.total_duty_hours_done
     
     
-    def _overtime_diff(self):
+    def _prev_timesheet_diff(self):
+        _logger.info("_prev_timesheet_diff")
         for sheet in self:
             # What is this? why day and not month?
             old_timesheet_start_from = sheet.date_start - timedelta(days=1)
+            _logger.info(old_timesheet_start_from)
             prev_timesheet_diff = \
                 self.get_previous_month_diff(
                     sheet.employee_id.id,
                     old_timesheet_start_from.strftime('%Y-%m-%d')
                 )
-            sheet['calculate_diff_hours'] = (
-                self.get_overtime(datetime.today().strftime('%Y-%m-%d'), ) +
-                prev_timesheet_diff)
-            sheet['prev_timesheet_diff'] = prev_timesheet_diff
+            _logger.info(prev_timesheet_diff)
+            sheet.prev_timesheet_diff = prev_timesheet_diff
+        _logger.info("_prev_timesheet_diff")
+
     
     # Pupulate Overtime Analysis table data with results from attendance_analysis
     
     def _get_analysis(self):
         res = {}
+        _logger.info("_get_analysis")
         for sheet in self:
             function_call = True
             data = self.attendance_analysis(sheet.id, function_call)
@@ -175,29 +213,7 @@ class Sheet(models.Model):
             output.append('</tr>')
             output.append('</table>')
             sheet['analysis'] = '\n'.join(output)
-    
-    # This used to start as "expected to be done" and finish as "monthly diff"
-    # Now this will remain as the expected time always.
-    total_duty_hours = fields.Float(compute='_duty_hours',
-                                    string='Total Duty Hours')
-    # Remains as cache of the total_duty_hours.
-    total_duty_hours_done = fields.Float(string='Total Duty Hours',
-                                         readonly=True,
-                                         default=0.0)
-    # What is this for?
-    total_diff_hours = fields.Float(string='Total Diff Hours',
-                                    readonly=True,
-                                    default=0.0)
-    # This is the "Total balance", the final result considering all past deltas.
-    calculate_diff_hours = fields.Float(compute='_overtime_diff',
-                                       string="Diff (worked-duty)")
-    # This is the delta of the previous month.
-    prev_timesheet_diff = fields.Float(compute='_overtime_diff',
-                                      string="Diff from old")
-    # This constructs the "Overtime Analysys" tab content (table)
-    analysis = fields.Text(compute='_get_analysis',
-                           type="text",
-                           string="Attendance Analysis")
+        _logger.info("_get_analysis_end")
     
     
     def calculate_duty_hours(self, date_start, period):
@@ -231,16 +247,39 @@ class Sheet(models.Model):
 
 
     def get_previous_month_diff(self, employee_id, prev_timesheet_date_from):
+        _logger.info("_get_previous_month_diff")
         total_diff = 0.0
         prev_timesheet_ids = self.search(
             [('employee_id', '=', employee_id)
              ]).filtered(lambda sheet: sheet.date_end < self.date_start).sorted(
             key=lambda v: v.date_start)
+        _logger.info(prev_timesheet_ids)
         if prev_timesheet_ids:
+            _logger.info("call calculate_diff_hours")
             total_diff = prev_timesheet_ids[-1].calculate_diff_hours
+        _logger.info(total_diff)
         return total_diff
-    
-    
+
+
+    def _calculate_diff_hours(self):
+        _logger.info("_calculate_diff_hours")
+        total_diff_hours = 0.0
+        for sheet in self:
+            _logger.info("_calculate_diff_hours_for")
+            if sheet.state == 'done' and 'total_diff_hours' in sheet:
+                _logger.info(sheet.total_diff_hours)
+                total_diff_hours = sheet.total_diff_hours
+                _logger.info("done")
+            else:
+                _logger.info("not done or diff not set")
+                total_diff_hours = (
+                    self.get_overtime(datetime.today().strftime('%Y-%m-%d'), ) +
+                    sheet.prev_timesheet_diff)
+        _logger.info("_calculate_diff_hours_for_end")
+        _logger.info(total_diff_hours)
+        sheet.calculate_diff_hours = total_diff_hours
+
+
     def _get_user_datetime_format(self):
         """ Get user's language & fetch date/time formats of
         that language """
@@ -330,17 +369,31 @@ class Sheet(models.Model):
 
 
     def write(self, vals):
+        _logger.info('write')
+        _logger.info(vals)
         if 'state' in vals and vals['state'] == 'done':
             for sheet in self:
-                vals['total_diff_hours'] = sheet.calculate_diff_hours
-                vals['total_duty_hours_done'] = sheet['total_duty_hours_done']
+                _logger.info('write: done')
+                total_duty_hours = sheet.total_duty_hours
+                total_diff_hours = sheet.calculate_diff_hours
+                _logger.info(total_duty_hours)
+                _logger.info(total_diff_hours)
+                vals['total_diff_hours'] = total_diff_hours
+                vals['total_duty_hours_done'] = total_duty_hours
         elif 'state' in vals and vals['state'] == 'draft':
             for sheet in self:
-                vals['total_diff_hours'] = sheet.calculate_diff_hours
-        res = super(Sheet, self).write(vals)
+                _logger.info('write: draft')
+                total_duty_hours = sheet.total_duty_hours
+                _logger.info(total_duty_hours)
+                vals['total_diff_hours'] = 0.0
+                vals['total_duty_hours_done'] = total_duty_hours
+        _logger.info('call super write')
+        _logger.info(vals)
+        res = super(Sheet,self).write(vals)
+        _logger.info('write end')
         return res
-    
-    
-    def calculate_diff(self, end_date=None):
-        for sheet in self:
-            return (sheet.total_time - sheet.total_duty_hours)
+
+
+    # def calculate_diff(self):
+    #     for sheet in self:
+    #         return (sheet.total_time - sheet.total_duty_hours_done)
