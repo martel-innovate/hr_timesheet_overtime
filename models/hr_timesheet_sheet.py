@@ -241,7 +241,7 @@ class Sheet(models.Model):
                 duty_hours += dh
             else:
                 if leaves[-1] and leaves[-1][-1]:
-                    if float(leaves[-1][-1]) == (-0.5):
+                    if float(leaves[-1][-1]) == (0.5):
                         duty_hours += dh / 2
         return duty_hours
 
