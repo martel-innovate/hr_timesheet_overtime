@@ -92,6 +92,33 @@ class Sheet(models.Model):
                            type="text",
                            string="Attendance Analysis")
 
+    overtime_payment_time = fields.Float(compute="_compute_overtime_payment_time", string="Overtime payment time", store=True)
+
+
+    @api.depends("timesheet_ids.unit_amount")
+    def _compute_total_time(self):
+
+        for sheet in self:
+
+            total_time = 0
+            for aal in sheet.timesheet_ids:
+                if aal.project_id.name.lower().strip() != 'overtime payment':
+                    total_time += aal.unit_amount
+
+            sheet.total_time = total_time
+
+
+    @api.depends("timesheet_ids.unit_amount")
+    def _compute_overtime_payment_time(self):
+        for sheet in self:
+
+            overtime_payment_time = 0
+            for aal in sheet.timesheet_ids:
+                if aal.project_id.name.lower().strip() == 'overtime payment':
+                    overtime_payment_time += aal.unit_amount
+
+            sheet.overtime_payment_time = overtime_payment_time
+
     def _duty_hours(self):
         _logger.info("_duty_hours")
         total_duty_hours = 0.0
@@ -142,14 +169,14 @@ class Sheet(models.Model):
                         (leave_date_start, leave_date_end, leave.number_of_days))
                     break
         return leaves
-    
-    
+
+
     def get_overtime(self, start_date):
         _logger.info("get_overtime")
         for sheet in self:
-            return sheet.total_time - sheet.total_duty_hours_done
-    
-    
+            return sheet.total_time - sheet.total_duty_hours_done + sheet.overtime_payment_time
+
+
     def _prev_timesheet_diff(self):
         _logger.info("_prev_timesheet_diff")
         for sheet in self:
@@ -165,9 +192,9 @@ class Sheet(models.Model):
             sheet.prev_timesheet_diff = prev_timesheet_diff
         _logger.info("_prev_timesheet_diff")
 
-    
+
     # Pupulate Overtime Analysis table data with results from attendance_analysis
-    
+
     def _get_analysis(self):
         res = {}
         _logger.info("_get_analysis")
@@ -214,8 +241,8 @@ class Sheet(models.Model):
             output.append('</table>')
             sheet['analysis'] = '\n'.join(output)
         _logger.info("_get_analysis_end")
-    
-    
+
+
     def calculate_duty_hours(self, date_start, period):
         contract_obj = self.env['hr.contract']
         calendar_obj = self.env['resource.calendar']
@@ -292,8 +319,8 @@ class Sheet(models.Model):
             date_format = lang.date_format
             time_format = lang.time_format
         return date_format, time_format
-    
-    
+
+
     def attendance_analysis(self, timesheet_id=None, function_call=False):
         date_format, time_format = self._get_user_datetime_format()
         for sheet in self:
@@ -308,7 +335,7 @@ class Sheet(models.Model):
                     'previous_month_diff': previous_month_diff,
                     'hours': []
                 }
-    
+
                 period = {'date_start': start_date,
                           'date_end': end_date
                           }
@@ -325,7 +352,7 @@ class Sheet(models.Model):
                          'diff':
                              current_month_diff, 'work_current_month_diff': 0.0}
                 for date_line in dates:
-    
+
                     dh = sheet.calculate_duty_hours(date_start=date_line,
                                                     period=period,
                                                     )
@@ -333,7 +360,7 @@ class Sheet(models.Model):
                     for att in sheet.timesheet_ids:
                         if att.date == date_line.date():
                             worked_hours += att.unit_amount
-    
+
                     diff = worked_hours - dh
                     current_month_diff += diff
                     work_current_month_diff += diff

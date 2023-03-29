@@ -8,7 +8,8 @@
             <xpath expr="/form/sheet/group/group[@name='dates']" position="after">
                 <group>
                     <field name="total_duty_hours" widget="float_time" string="Expected this timesheet"/>
-                    <field name="total_time" widget="float_time"/>
+                    <field name="total_time" widget="float_time" string="Total time"/>
+                    <field name="overtime_payment_time" widget="float_time" attrs="{'invisible':[('overtime_payment_time', '=', 0)]}"/>
                     <field name="prev_timesheet_diff" widget="float_time" string="Previous balance"/>
                     <field name="calculate_diff_hours" widget="float_time" string="Total balance"/>
                 </group>
