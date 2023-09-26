@@ -92,8 +92,6 @@ class Sheet(models.Model):
                            type="text",
                            string="Attendance Analysis")
 
-    overtime_payment_time = fields.Float(compute="_compute_overtime_payment_time", string="Overtime payment time", store=True)
-
 
     @api.depends("timesheet_ids.unit_amount")
     def _compute_total_time(self):
@@ -102,22 +100,10 @@ class Sheet(models.Model):
 
             total_time = 0
             for aal in sheet.timesheet_ids:
-                if aal.project_id.name.lower().strip() != 'overtime payment':
-                    total_time += aal.unit_amount
+                total_time += aal.unit_amount
 
             sheet.total_time = total_time
 
-
-    @api.depends("timesheet_ids.unit_amount")
-    def _compute_overtime_payment_time(self):
-        for sheet in self:
-
-            overtime_payment_time = 0
-            for aal in sheet.timesheet_ids:
-                if aal.project_id.name.lower().strip() == 'overtime payment':
-                    overtime_payment_time += aal.unit_amount
-
-            sheet.overtime_payment_time = overtime_payment_time
 
     def _duty_hours(self):
         _logger.info("_duty_hours")
@@ -174,7 +160,7 @@ class Sheet(models.Model):
     def get_overtime(self, start_date):
         _logger.info("get_overtime")
         for sheet in self:
-            return sheet.total_time - sheet.total_duty_hours_done + sheet.overtime_payment_time
+            return sheet.total_time - sheet.total_duty_hours_done
 
 
     def _prev_timesheet_diff(self):

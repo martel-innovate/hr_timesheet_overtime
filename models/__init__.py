@@ -21,3 +21,4 @@
 
 from . import hr_timesheet_sheet
 from . import resource_calendar
+from . import project
