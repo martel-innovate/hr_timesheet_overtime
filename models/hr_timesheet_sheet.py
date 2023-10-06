@@ -160,8 +160,7 @@ class Sheet(models.Model):
     def get_overtime(self, start_date):
         _logger.info("get_overtime")
         for sheet in self:
-            return sheet.total_time - sheet.total_duty_hours_done
-
+            return sheet.total_time - sheet.total_duty_hours
 
     def _prev_timesheet_diff(self):
         _logger.info("_prev_timesheet_diff")
