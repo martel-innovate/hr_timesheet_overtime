@@ -187,7 +187,7 @@ class Sheet(models.Model):
                     output.append('<tr>')
                     prev_ts = _('Previous Timesheet:')
                     output.append('<th colspan="2">' + prev_ts + ' </th>')
-                    output.append('<td colspan="3">' + str(round(data['previous_month_diff'],2)) + '</td>')
+                    output.append('<td colspan="3">' + str(sign_float_time_convert(data['previous_month_diff'])) + '</td>')
                     output.append('</tr>')
             keys = (_('Date'), _('Running'), _('Duty Hours'), _('Worked Hours'),
                     _('Difference'))
@@ -209,7 +209,8 @@ class Sheet(models.Model):
                 if isinstance(data['total'], dict):
                     for v in keys:
                         if data['total'].get(v):
-                            output.append('<td>' + '%s' % round(data['total'].get(v), 2) + '</td>')
+                            output.append('<td>' + '%s' % sign_float_time_convert(data['total'].get(v)) + '</td>')
+
             output.append('</tr>')
             output.append('</table>')
             sheet['analysis'] = '\n'.join(output)
@@ -365,6 +366,7 @@ class Sheet(models.Model):
                         total['work_current_month_diff'] = work_current_month_diff
                         total['diff'] += diff
                     res['total'] = total
+
                 return res
 
 
