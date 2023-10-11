@@ -14,7 +14,7 @@
                 </group>
             </xpath>
             <notebook position="inside">
-                <page string="Overtime Analysis">
+                <page string="Flexitime Analysis">
                     <field name="analysis" widget="html" nolabel="1"/>
                 </page>
             </notebook>
