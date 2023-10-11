@@ -92,6 +92,19 @@ class Sheet(models.Model):
                            type="text",
                            string="Attendance Analysis")
 
+
+    @api.depends("timesheet_ids.unit_amount")
+    def _compute_total_time(self):
+
+        for sheet in self:
+
+            total_time = 0
+            for aal in sheet.timesheet_ids:
+                total_time += aal.unit_amount
+
+            sheet.total_time = total_time
+
+
     def _duty_hours(self):
         _logger.info("_duty_hours")
         total_duty_hours = 0.0
@@ -148,7 +161,6 @@ class Sheet(models.Model):
         _logger.info("get_overtime")
         for sheet in self:
             return sheet.total_time - sheet.total_duty_hours
-
 
     def _prev_timesheet_diff(self):
         _logger.info("_prev_timesheet_diff")
