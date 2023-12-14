@@ -8,8 +8,8 @@
             <pivot string="Timesheet Flexitime Analysis">
                 <field name="employee_id" type="row"/>
                 <field name="date_start" interval="month" type="col"/>
-                <field name="total_time" type="measure"/>
-                <field name="total_duty_hours_done" type="measure"/>
+                <field name="total_time" type="measure" string="Total worked hours"/>
+                <field name="total_duty_hours_done" type="measure" string="Theoretical (duty) hours"/>
                 <field name="total_diff_hours_done" type="measure"/>
             </pivot>
         </field>
