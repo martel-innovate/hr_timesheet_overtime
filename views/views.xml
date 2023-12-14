@@ -1,5 +1,37 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <odoo>
+
+    <record id="hr_timesheet_sheet_pivot" model="ir.ui.view">
+        <field name="name">hr_timesheet.sheet.pivot</field>
+        <field name="model">hr_timesheet.sheet</field>
+        <field name="arch" type="xml">
+            <pivot string="Timesheet Flexitime Analysis">
+                <field name="employee_id" type="row"/>
+                <field name="date_start" interval="month" type="col"/>
+                <field name="total_time" type="measure"/>
+                <field name="total_duty_hours_done" type="measure"/>
+                <field name="total_diff_hours_done" type="measure"/>
+            </pivot>
+        </field>
+    </record>
+
+
+    <record id="action_hr_timesheet_sheet_pivot" model="ir.actions.act_window">
+        <field name="name">Flexitime Balance</field>
+        <field name="res_model">hr_timesheet.sheet</field>
+        <field name="view_mode">pivot</field>
+        <field name="context">{}</field>
+    </record>
+
+
+    <menuitem id="timesheet_menu_pivot"
+        name="Flexitime Balance"
+        parent="hr_timesheet.menu_timesheets_reports_timesheet"
+        action="action_hr_timesheet_sheet_pivot"
+        sequence="999"
+        />
+
+
     <record id="timesheet_overtime" model="ir.ui.view">
         <field name="name">hr_timesheet.overtime</field>
         <field name="model">hr_timesheet.sheet</field>

@@ -1,0 +1,50 @@
+
+
+To use the pivot table Flexitime Balance with historical data, we need to calculate the value for total_diff_hours_done for each existing row in hr_timesheet_sheet, as this field
+was introduced later than the other overtime attributes for hr_timesheet.sheet. The reason is that this attribute is only needed in the definition of the Flexitime Balance table.
+The request for this pivot table was made in December 2023.
+
+
+1. Enter the Odoo shell. Fill in the correct value for the database name. In this example the database name is: martel_09_2023.
+
+
+When Odoo runs inside a Docker container use:
+
+> docker exec -it odoo bash -c "odoo shell -d martel_09_2023 -c /etc/odoo/odoo.conf"
+
+Otherwise:
+
+> odoo shell -d martel_09_2023 -c /etc/odoo/odoo.conf
+
+
+
+
+
+2. The following lines of code need to be executed
+
+
+item_ids = [item.id for item in env['hr_timesheet.sheet'].search([('state', '=', 'done')])]
+
+working_count = 0
+not_working_count = 0
+
+
+for item_id in item_ids:
+    try:
+        total_diff_hours = env['hr_timesheet.sheet'].search([('id', '=', item_id)]).calculate_diff_hours
+        env['hr_timesheet.sheet'].search([('id', '=', item_id)]).write({'total_diff_hours_done': total_diff_hours})
+        env.cr.commit()
+        working_count += 1
+    except:
+        not_working_count += 1
+
+
+print('working_count: ', working_count)
+print('not_working_count: ', not_working_count)
+
+
+
+
+not_working_count should be 0
+
+
