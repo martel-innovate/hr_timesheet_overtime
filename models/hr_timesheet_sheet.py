@@ -81,6 +81,11 @@ class Sheet(models.Model):
     total_diff_hours = fields.Float(string='Total Diff Hours',
                                     readonly=True,
                                     default=0.0)
+
+    total_diff_hours_done = fields.Float(string='Total Diff Hours (stored)',
+                                    readonly=True,
+                                    default=0.0)
+
     # This is the "Total balance", the final result considering all past deltas.
     calculate_diff_hours = fields.Float(compute='_calculate_diff_hours',
                                         string="Diff (worked-duty)")
@@ -393,6 +398,7 @@ class Sheet(models.Model):
                 _logger.info(total_duty_hours)
                 _logger.info(total_diff_hours)
                 vals['total_diff_hours'] = total_diff_hours
+                vals['total_diff_hours_done'] = total_diff_hours
                 vals['total_duty_hours_done'] = total_duty_hours
         elif 'state' in vals and vals['state'] == 'draft':
             for sheet in self:
@@ -400,7 +406,16 @@ class Sheet(models.Model):
                 total_duty_hours = sheet.total_duty_hours
                 _logger.info(total_duty_hours)
                 vals['total_diff_hours'] = 0.0
+                vals['total_diff_hours_done'] = 0.0
                 vals['total_duty_hours_done'] = total_duty_hours
+        else:
+            for sheet in self:
+                _logger.info('write: other')
+                total_diff_hours = sheet.calculate_diff_hours
+                _logger.info(total_diff_hours)
+                vals['total_diff_hours'] = total_diff_hours
+                vals['total_diff_hours_done'] = total_diff_hours
+
         _logger.info('call super write')
         _logger.info(vals)
         res = super(Sheet,self).write(vals)
